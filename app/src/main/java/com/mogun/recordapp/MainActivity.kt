@@ -19,7 +19,7 @@ import androidx.core.content.ContextCompat
 import com.mogun.recordapp.databinding.ActivityMainBinding
 import java.io.IOException
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), OnTimerTickListener {
 
     companion object {
         private const val REQUEST_RECORD_AUDIO_CODE = 200
@@ -27,9 +27,11 @@ class MainActivity : AppCompatActivity() {
 
     // release -> recording -> release
     // release -> play -> release
-    enum class State {
+    private enum class State {
         RELEASE, RECORDING, PLAYING
     }
+
+    private lateinit var timer: Timer
 
     private lateinit var binding: ActivityMainBinding
     private var recorder: MediaRecorder? = null
@@ -43,17 +45,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         fileName = "${externalCacheDir?.absolutePath}/audiorecordtest.3gp"
+        timer = Timer(this)
 
         binding.recordButton.setOnClickListener {
             when (state) {
                 State.RELEASE -> {
                     record()
                 }
-
                 State.RECORDING -> {
                     onRecord(false)
                 }
-
                 State.PLAYING -> {
 
                 }
@@ -66,6 +67,9 @@ class MainActivity : AppCompatActivity() {
                 else -> {}
             }
         }
+
+        binding.playButton.isEnabled = false
+        binding.playButton.alpha = 0.3f
 
         binding.stopButton.setOnClickListener {
             when (state) {
@@ -130,6 +134,9 @@ class MainActivity : AppCompatActivity() {
             start()
         }
 
+        binding.waveformView.clearData()
+        timer.start()
+
         binding.recordButton.setImageDrawable(
             ContextCompat.getDrawable(this, R.drawable.baseline_stop_24)
         )
@@ -144,6 +151,10 @@ class MainActivity : AppCompatActivity() {
             release()
         }
         recorder = null
+
+        // 타이머 정지
+        timer.stop()
+
         state = State.RELEASE
 
         binding.recordButton.setImageDrawable(
@@ -168,6 +179,9 @@ class MainActivity : AppCompatActivity() {
             start()
         }
 
+        binding.waveformView.clearWave()
+        timer.start()
+
         player?.setOnCompletionListener {
             stopPlaying()
         }
@@ -182,13 +196,15 @@ class MainActivity : AppCompatActivity() {
         player?.release()
         player = null
 
+        timer.stop()
+
         binding.recordButton.isEnabled = true
         binding.recordButton.alpha = 1.0f
     }
 
     private fun showPermissionRationalDialog() {
         AlertDialog.Builder(this)
-            .setMessage("앱을 정상적으로 이용하기 위해 녹음 권한을 허용해주세요")
+            .setMessage(getString(R.string.permission_setting_message))
             .setPositiveButton("권한 허용하기") { _, _ ->
                 ActivityCompat.requestPermissions(
                     this,
@@ -241,6 +257,20 @@ class MainActivity : AppCompatActivity() {
             } else {
                 showPermissionSettingDialog()
             }
+        }
+    }
+
+    override fun onTick(duration: Long) {
+        val millisecond = duration % 1000
+        val second = (duration / 1000) % 60
+        val minute = (duration / 1000 / 60)
+
+        binding.timerTextView.text = String.format("%02d:%02d.%02d", minute, second, millisecond / 10)
+
+        if (state == State.PLAYING) {
+            binding.waveformView.replayAmplitude()
+        } else if (state == State.RECORDING) {
+            binding.waveformView.addAmplitude(recorder?.maxAmplitude?.toFloat() ?: 0f)
         }
     }
 }

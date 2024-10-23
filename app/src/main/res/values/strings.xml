@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">RecordApp</string>
+    <string name="permission_setting_message">앱을 정상적으로 이용하기 위해 녹음 권한을 허용해주세요</string>
 </resources>
